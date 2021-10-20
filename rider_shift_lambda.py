@@ -1,35 +1,60 @@
 from utils import *
-from sql import rider_shifts_sql
+from sql import *
 
-ID = 'ID'
-SHIFT_START_DATE = 'Shift Start Date'
-SHIFT_START_TIME = 'Shift Start Time'
-SHIFT_END_DATE = 'Shift End Date'
-SHIFT_END_TIME = 'Shift End Time'
-HOT_SPOT = 'HotSpot'
+NAME = 'Name'
 CITY = 'City'
-RIDER_REQUIRED = 'Rider Required'
+NIC = 'CNIC'
+ID = 'ID'
+MOBILE_NUMBER = 'Mobile Number'
+ON_TIME_RATE = 'On Time Rate'
 
 
-def rider_fill_rate(start_date, end_date):
-    connection = connect_to_db()
-    cursor = connection.cursor()
-    cursor.execute(rider_shifts_sql(start_date, end_date))
+def on_time_report(start_date, end_date):
 
-    shifts = cursor.fetchall()
+    data = get_dates( start_date,  end_date)
+    start_time, end_time = data['start_time'], data['end_time']
+    start_date, end_date = data['start_date'], data['end_date']
+    riders_data = []
+    riders = get_data(start_time, end_time)
+    print('rider', riders[0][0])
+    for rider in riders:
 
-    riders_data = [{ID: shift[0], SHIFT_START_DATE:shift[1], SHIFT_START_TIME: shift[2], SHIFT_END_DATE:shift[3],
-                    SHIFT_END_TIME:shift[4], HOT_SPOT:shift[5], CITY: shift[6], RIDER_REQUIRED:shift[7]}
-                   for shift in shifts]
+        order_stats = get_rider_order_stats(rider[0], start_time, end_time)
+        total_picked_up_orders = order_stats['total_picked_up_orders']
+        total_delivered_orders = order_stats['total_delivered_orders']
+        print('pick',total_picked_up_orders)
+        print('del', total_delivered_orders)
+        on_time_rates = calculate_on_time_rates(rider[0], start_time, end_time, total_delivered_orders,
+                                               total_picked_up_orders)
+        on_time_rate = on_time_rates['on_time_rate']
 
-    header = [ID, SHIFT_START_DATE, SHIFT_START_TIME, SHIFT_END_DATE, SHIFT_END_TIME, HOT_SPOT, CITY, RIDER_REQUIRED]
+        riders_data.append(
+            {ID: rider[0], NAME: rider[1], NIC: rider[2], MOBILE_NUMBER: rider[3], CITY: rider[4],
+             ON_TIME_RATE: on_time_rate})
 
-    file_name = 'Rider Fill Rate.csv'
+    cumulative_stats = {ID: '', NAME: '', NIC: '', MOBILE_NUMBER: '', CITY: '',
+                            ON_TIME_RATE: sum(rider_data[ON_TIME_RATE] for rider_data in riders_data)}
+    riders_data.append(cumulative_stats)
+    header = [ID, NAME, NIC, MOBILE_NUMBER, CITY, ON_TIME_RATE]
+    file_name = 'Rider On Time Report.csv'
     zip_file = create_csv(file_name, riders_data, header)
     attachments = [{'name': file_name + '.zip', 'content': zip_file.getvalue()}]
-    title = 'Rider Fill Report'
-    print(zip_file)
+    title = 'Rider Salary Report  -  {} - {}'.format(start_date, end_date)
+    import csv
 
 
-rider_fill_rate("2019-10-10", "2020-10-10")
+    with open('countriesasdf.csv', 'w', encoding='UTF8') as f:
+        writer = csv.writer(f)
+
+        # write the header
+        writer.writerow(header)
+
+        # write the data
+        writer.writerow(riders_data)
+
+
+on_time_report("2021-05-10", "2021-10-10")
+
+
+
 
